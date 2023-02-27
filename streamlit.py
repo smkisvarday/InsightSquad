@@ -5,14 +5,7 @@ import streamlit as st
 ### P1.2 ###
 
 
-
-
-
-# Move this code into `load_data` function {{
-
-
-
-@st.cache
+@st.cache_data
 def load_data():
     cancer_df = pd.read_csv("https://raw.githubusercontent.com/hms-dbmi/bmi706-2022/main/cancer_data/cancer_ICD10.csv").melt(  # type: ignore
     id_vars=["Country", "Year", "Cancer", "Sex"],
@@ -20,45 +13,48 @@ def load_data():
     value_name="Deaths",
 )
 
-pop_df = pd.read_csv("https://raw.githubusercontent.com/hms-dbmi/bmi706-2022/main/cancer_data/population.csv").melt(  # type: ignore
+    pop_df = pd.read_csv("https://raw.githubusercontent.com/hms-dbmi/bmi706-2022/main/cancer_data/population.csv").melt(  # type: ignore
     id_vars=["Country", "Year", "Sex"],
     var_name="Age",
     value_name="Pop",
 )
 
-df = pd.merge(left=cancer_df, right=pop_df, how="left")
-df["Pop"] = df.groupby(["Country", "Sex", "Age"])["Pop"].fillna(method="bfill")
-df.dropna(inplace=True)
+    df = pd.merge(left=cancer_df, right=pop_df, how="left")
+    df["Pop"] = df.groupby(["Country", "Sex", "Age"])["Pop"].fillna(method="bfill")
+    df.dropna(inplace=True)
 
-df = df.groupby(["Country", "Year", "Cancer", "Age", "Sex"]).sum().reset_index()
-df["Rate"] = df["Deaths"] / df["Pop"] * 100_000
-return df
+    df = df.groupby(["Country", "Year", "Cancer", "Age", "Sex"]).sum().reset_index()
+    df["Rate"] = df["Deaths"] / df["Pop"] * 100_000
+    return df
 
 
 # Uncomment the next line when finished
-# df = load_data()
+df = load_data()
 
 ### P1.2 ###
 
 
-st.write("## Age-specific cancer mortality rates")
+st.header("Age-specific cancer mortality rates")
 
-### P2.1 ###
-# replace with st.slider
+# min_year = df['Year'].min().astype(int)
+# max_year = df['Year'].max().astype(int)
+#int()
 year = 2012
-subset = df[df["Year"] == year]
-### P2.1 ###
 
+select_year = st.slider("Year", min_value= 1994, max_value= 2020, value=year, step=1)
+
+subset = df[df["Year"] == select_year]
 
 ### P2.2 ###
 # replace with st.radio
 sex = "M"
-subset = subset[subset["Sex"] == sex]
-### P2.2 ###
+male = df['Sex'].tolist().index('M')
 
+select_gender = st.radio ('Sex', ('M', 'F'))
+subset = subset[subset["Sex"] == select_gender]
 
 ### P2.3 ###
-# replace with st.multiselect
+
 # (hint: can use current hard-coded values below as as `default` for selector)
 countries = [
     "Austria",
@@ -69,15 +65,23 @@ countries = [
     "Thailand",
     "Turkey",
 ]
-subset = subset[subset["Country"].isin(countries)]
-### P2.3 ###
+
+select_country = st.multiselect('Countries', options=countries, default=countries)
+
+subset = subset[subset["Country"].isin(select_country)]
 
 
 ### P2.4 ###
 # replace with st.selectbox
+
 cancer = "Malignant neoplasm of stomach"
-subset = subset[subset["Cancer"] == cancer]
-### P2.4 ###
+in_stomach = df['Cancer'].unique().tolist().index(cancer)
+#in_stomach = [pd.unique(df['Cancer'])== cancer]
+
+dd_selectbox_cancer = st.selectbox(
+    'Cancer', df['Cancer'].unique(), index=in_stomach)
+
+subset = subset[subset["Cancer"] == dd_selectbox_cancer]
 
 
 ### P2.5 ###
@@ -92,15 +96,22 @@ ages = [
     "Age >64",
 ]
 
-chart = alt.Chart(subset).mark_bar().encode(
-    x=alt.X("Age", sort=ages),
-    y=alt.Y("Rate", title="Mortality rate per 100k"),
-    color="Country",
-    tooltip=["Rate"],
+
+age_selection = alt.selection_single(fields=['Age'], bind='legend')
+
+chart = alt.Chart(subset).mark_rect().encode(
+    x=alt.X("Age:O", sort=ages),
+    y=alt.Y("Country:N"),
+    color=alt.Color("Rate:Q", title="Mortality rate per 100k", scale=alt.Scale(type='log', domain=(0.01, 1000), clamp=True)),
+    tooltip=["Rate:Q"]
 ).properties(
-    title=f"{cancer} mortality rates for {'males' if sex == 'M' else 'females'} in {year}",
+    title=f"{dd_selectbox_cancer} mortality rates for {'males' if select_gender == 'M' else 'females'} in {select_year}",
+).add_selection(
+    age_selection
 )
+
 ### P2.5 ###
+
 
 st.altair_chart(chart, use_container_width=True)
 
@@ -111,3 +122,25 @@ if len(countries_in_subset) != len(countries):
     else:
         missing = set(countries) - set(countries_in_subset)
         st.write("No data available for " + ", ".join(missing) + ".")
+
+
+subset_year = df[df["Year"] == select_year]
+subset_year_country = subset_year[subset_year["Country"].isin(select_country)]
+
+
+bar_chart = alt.Chart(subset).mark_bar().encode(
+    x=alt.X("Pop:Q", sort=ages, title='Population'),
+    y=alt.Y("Country:N", title='Country', sort=ages),
+    color=alt.Color("Age:O", sort=ages, title='Age'),
+    opacity=alt.condition(age_selection, alt.value(1), alt.value(0.2)),
+    tooltip=["Age:O", "Pop:Q"]
+).properties(
+    title=f"Population by Country and Age Group in {select_year}",
+).add_selection(
+    age_selection
+)
+#.transform_filter(
+#select_year
+#)
+
+st.altair_chart(bar_chart, use_container_width=True)
