@@ -32,7 +32,7 @@ df.dropna(inplace=True)
 
 df = df.groupby(["Country", "Year", "Cancer", "Age", "Sex"]).sum().reset_index()
 df["Rate"] = df["Deaths"] / df["Pop"] * 100_000
-return df
+#return df
 
 
 # Uncomment the next line when finished
