@@ -8,7 +8,7 @@ import streamlit as st
 
 # mount to google drive
 #from google.colab import drive
-drive.mount('/content/gdrive')
+#drive.mount('/content/gdrive')
 
 #read in data
 
