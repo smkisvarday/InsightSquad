@@ -7,7 +7,7 @@ import streamlit as st
 #mount google drive ("allow access" when prompted)
 
 # mount to google drive
-from google.colab import drive
+#from google.colab import drive
 drive.mount('/content/gdrive')
 
 #read in data
