@@ -14,8 +14,11 @@ url_dis = "https://github.com/smkisvarday/InsightSquad/master/incidence-rate--20
 #pd.read_csv(url)
 #df = pd.read_excel('sample.xlsx')
 
-vax = pd.read_excel(url_vax)
-dis = pd.read_excel(url_dis)
+#vax = pd.read_excel(url_vax)
+#dis = pd.read_excel(url_dis)
+
+vax = pd.read_csv('coverage--2021.csv')
+dis = pd.read_csv('incidence-rate--2021.csv')
 
 
 #mount google drive ("allow access" when prompted)
