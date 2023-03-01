@@ -1,12 +1,22 @@
 import altair as alt
 import pandas as pd
-import streamlit as st
+import streamlit_app as st
 
 ### P1.2 ###
 
 
 @st.cache_data
 def load_data():
+
+    url_vax = "https://raw.githubusercontent.com/smkisvarday/InsightSquad/master/coverage--2021.xlsx"
+    url_dis = "https://raw.githubusercontent.com/smkisvarday/InsightSquad/master/incidence-rate--2021.xlsx"
+
+
+    coverage_df = pd.read_excel(url_vax)
+    url_df = pd.read_excel(url_dis)
+
+    print(coverage_df.head())
+
     cancer_df = pd.read_csv("https://raw.githubusercontent.com/hms-dbmi/bmi706-2022/main/cancer_data/cancer_ICD10.csv").melt(  # type: ignore
     id_vars=["Country", "Year", "Cancer", "Sex"],
     var_name="Age",
