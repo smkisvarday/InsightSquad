@@ -14,17 +14,17 @@ import streamlit as st
 
 #IF DIRECTORY DOESN'T WORK FOR YOU try right clicking on the folder -> add shortcut to Drive
  # and put the shortcut in your top-level My Drive folder
-directory = '/content/gdrive/My Drive/GroupProject_bmi706/Disease-VaccineWHODatasets/'
+#directory = '/content/gdrive/My Drive/GroupProject_bmi706/Disease-VaccineWHODatasets/'
 
 
 #  (these are saved as csv, with the readme/reference worksheets tabs removed)
 #vaccine coverage data:
 # vax = pd.read_csv(directory+'wuenic_input_to_pdf__july_2022.csv')
-vax = pd.read_csv(directory +"coverage--2021.csv")
+vax = pd.read_excel("coverage--2021.csv")
 
 
 #disease incidence data:
-dis = pd.read_csv(directory+'incidence-rate--2021.csv')
+dis = pd.read_excel('incidence-rate--2021.csv')
 
 ###  Creating the Needed Dataframe ###
 
