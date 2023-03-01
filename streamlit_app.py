@@ -1,156 +1,208 @@
 import altair as alt
 import pandas as pd
-import streamlit_app as st
+import streamlit as st
+import numpy as np
+from vega_datasets import data
 
-### P1.2 ###
+
 
 
 @st.cache_data
 def load_data():
 
-    url_vax = "https://raw.githubusercontent.com/smkisvarday/InsightSquad/master/coverage--2021.xlsx"
-    url_dis = "https://raw.githubusercontent.com/smkisvarday/InsightSquad/master/incidence-rate--2021.xlsx"
+    url_vax = "https://raw.githubusercontent.com/smkisvarday/InsightSquad/master/coverage--2021.csv"
+    url_dis = "https://raw.githubusercontent.com/smkisvarday/InsightSquad/master/incidence-rate--2021.csv"
 
 
-    coverage_df = pd.read_excel(url_vax)
-    url_df = pd.read_excel(url_dis)
+    vax = pd.read_csv(url_vax)
+    dis = pd.read_csv(url_dis)
 
-    print(coverage_df.head())
+    return vax, dis
 
-    cancer_df = pd.read_csv("https://raw.githubusercontent.com/hms-dbmi/bmi706-2022/main/cancer_data/cancer_ICD10.csv").melt(  # type: ignore
-    id_vars=["Country", "Year", "Cancer", "Sex"],
-    var_name="Age",
-    value_name="Deaths",
+
+
+vax, dis = load_data()
+
+print(vax.head())
+
+###  Creating the Needed Dataframe ###
+
+vax_countries = vax[vax.GROUP == "COUNTRIES"].NAME.unique()
+dis_countries = dis[dis.GROUP == "COUNTRIES"].NAME.unique()
+
+countries_not_in_vax = np.setdiff1d(dis_countries, vax_countries)
+countries_not_in_dis = np.setdiff1d(vax_countries, dis_countries)
+
+vax_dict = {'bcg':'tuberculosis',  # BCG immunization coverage among 1-year-olds (%)
+            'dtp1':'diptheria_tetanus_pertussis_dose1',  
+            'dtp3':'diptheria_tetanus_pertussis_dose3', # #Diphtheria tetanus toxoid and pertussis (DTP3) immunization coverage among 1-year-olds (%)
+            'hepb3':'hepatitisB_dose3', # Hepatitis B (HepB3) immunization coverage among 1-year-olds (%) 
+            'hepbb':'hepatitisB_birth-dose',
+            'hib3':'Haemophilus_influenzaeB',  #percentage of 1 year olds receiving HIB vaccine in a given year
+            'ipv1':'polio_inactivated',  #https://www.who.int/teams/health-product-policy-and-standards/standards-and-specifications/vaccines-quality/poliomyelitis
+            'mcv1':'measles_dose1', # Measles-containing-vaccine first-dose (MCV1) immunization coverage among 1-year-olds (%) 
+            'mcv2':'measles_dose2', # Measles-containing-vaccine second-dose (MCV2) immunization coverage by the nationally recommended age (%)
+            'pcv3':'pneumococcal', # Pneumococcal Conjugate vaccines (PCV3) immunization coverage among 1-year-olds (%)
+            'pol3':'polio_live-oral',  # Polio (Pol3) immunization coverage among 1-year-olds (%), https://apps.who.int/iris/bitstream/handle/10665/332774/WER9526-283-290-eng-fre.pdf
+            'rotac':'rotavirus',  # Rotavirus vaccines completed dose (RotaC) immunization coverage among 1-year-olds (%)
+            'rcv1':'rubella_dose1',  #https://www.cdc.gov/mmwr/volumes/70/wr/mm7023a1.htm
+            'yfv':'yellow_fever'}
+
+cong_dz = ['CRS', 'NTETANUS']
+#drop na
+incidence = dis[~dis.DISEASE.isin(cong_dz)]
+incidence.dropna(inplace=True)
+
+dis.dropna(thresh=7, inplace=True, axis=0)
+#drop the mostly-nan row from both datasets
+dis.dropna(thresh=7, inplace=True, axis=0)
+vax.dropna(thresh=9, inplace=True, axis=0)
+
+
+
+vax['DISEASE'] = np.NaN
+
+diphtheria_words = '|'.join(['Diphtheria']) 
+measles_words = '|'.join(['Measles'])
+tetanus_words = '|'.join(['Tetanus'])
+mumps_words = []
+pertussis_words = '|'.join(['Pertussis'])
+polio_words = '|'.join(['Polio', 'polio', 'IPV'])
+rubella_words = '|'.join(['Rubella'])
+yellowfever_words = '|'.join(['Yellow fever'])
+jenceph_words = '|'.join(['Japanese encephalitis'])
+
+#populate with diseases matching antigen description, for diseases in the dis dataset 
+vax.loc[vax.ANTIGEN_DESCRIPTION.str.contains(diphtheria_words), 'DISEASE'] = 'DIPHTHERIA'
+vax.loc[vax.ANTIGEN_DESCRIPTION.str.contains(measles_words), 'DISEASE'] = 'MEASLES'
+vax.loc[vax.ANTIGEN_DESCRIPTION.str.contains(tetanus_words), 'DISEASE'] = 'TTETANUS'
+vax.loc[vax.ANTIGEN_DESCRIPTION.str.contains(pertussis_words), 'DISEASE'] = 'PERTUSSIS'
+vax.loc[vax.ANTIGEN_DESCRIPTION.str.contains(polio_words), 'DISEASE'] = 'POLIO'
+vax.loc[vax.ANTIGEN_DESCRIPTION.str.contains(rubella_words), 'DISEASE'] = 'RUBELLA'
+vax.loc[vax.ANTIGEN_DESCRIPTION.str.contains(yellowfever_words), 'DISEASE'] = 'YFEVER'
+vax.loc[vax.ANTIGEN_DESCRIPTION.str.contains(jenceph_words), 'DISEASE'] = 'JAPENC'
+
+common_diseases = vax.loc[vax.DISEASE.notna(), 'DISEASE'].unique()
+
+vax_lim = vax[vax.DISEASE.isin(common_diseases)]
+dis_lim = dis[dis.DISEASE.isin(common_diseases)]
+
+df = pd.merge(vax_lim, dis_lim, on=['GROUP', 'CODE', 'NAME', 'YEAR', 'DISEASE'], how='left')
+
+WHO_completed_series = ['DIPHCV5', 'POL3', 'MCV2', 'DTPCV3',  'RCV1', 'TT2PLUS', 'YFV', 'JAPENC']
+df_last_dose = df[df['ANTIGEN'].isin(WHO_completed_series)]
+
+
+df_last_dose = df_last_dose[df_last_dose['COVERAGE_CATEGORY_DESCRIPTION'] == 'Official coverage']
+
+#Getting just the columns I want for the geospatial maps
+
+df_ld = df_last_dose[['NAME', 'YEAR', 'DISEASE', 'COVERAGE', 'INCIDENCE_RATE']]
+
+df_ld = df_ld.rename(columns={'NAME': 'Country'})
+
+country_df = pd.read_csv('https://raw.githubusercontent.com/hms-dbmi/bmi706-2022/main/cancer_data/country_codes.csv', dtype = {'conuntry-code': str})
+
+country_df_nw = country_df.copy()
+country_df_2 = country_df_nw[['Country', 'country-code']]
+
+# geospatial chart
+
+# merge the dataframes
+for_geo = df_ld.merge(country_df_2, how='inner'
 )
 
-    pop_df = pd.read_csv("https://raw.githubusercontent.com/hms-dbmi/bmi706-2022/main/cancer_data/population.csv").melt(  # type: ignore
-    id_vars=["Country", "Year", "Sex"],
-    var_name="Age",
-    value_name="Pop",
-)
+country_df = pd.read_csv('https://raw.githubusercontent.com/hms-dbmi/bmi706-2022/main/cancer_data/country_codes.csv', dtype = {'conuntry-code': str})
+source = alt.topo_feature(data.world_110m.url, 'countries')
 
-    df = pd.merge(left=cancer_df, right=pop_df, how="left")
-    df["Pop"] = df.groupby(["Country", "Sex", "Age"])["Pop"].fillna(method="bfill")
-    df.dropna(inplace=True)
+#I will need to update the year for this visualization once I figure out how to do a slider for this chart
+year = 2018.0 # only visualize for 2018
+for_geo = for_geo[for_geo['YEAR']==year]
 
-    df = df.groupby(["Country", "Year", "Cancer", "Age", "Sex"]).sum().reset_index()
-    df["Rate"] = df["Deaths"] / df["Pop"] * 100_000
-    return df
+st.header("Global Vaccine-Preventable Disease Dashboard")
 
+width = 600
+height  = 300
+project = 'equirectangular'
 
-# Uncomment the next line when finished
-df = load_data()
-
-### P1.2 ###
-
-
-st.header("Age-specific cancer mortality rates")
-
-# min_year = df['Year'].min().astype(int)
-# max_year = df['Year'].max().astype(int)
-#int()
-year = 2012
-
-select_year = st.slider("Year", min_value= 1994, max_value= 2020, value=year, step=1)
-
-subset = df[df["Year"] == select_year]
-
-### P2.2 ###
-# replace with st.radio
-sex = "M"
-male = df['Sex'].tolist().index('M')
-
-select_gender = st.radio ('Sex', ('M', 'F'))
-subset = subset[subset["Sex"] == select_gender]
-
-### P2.3 ###
-
-# (hint: can use current hard-coded values below as as `default` for selector)
-countries = [
-    "Austria",
-    "Germany",
-    "Iceland",
-    "Spain",
-    "Sweden",
-    "Thailand",
-    "Turkey",
-]
-
-select_country = st.multiselect('Countries', options=countries, default=countries)
-
-subset = subset[subset["Country"].isin(select_country)]
-
-
-### P2.4 ###
-# replace with st.selectbox
-
-cancer = "Malignant neoplasm of stomach"
-in_stomach = df['Cancer'].unique().tolist().index(cancer)
-#in_stomach = [pd.unique(df['Cancer'])== cancer]
-
-dd_selectbox_cancer = st.selectbox(
-    'Cancer', df['Cancer'].unique(), index=in_stomach)
-
-subset = subset[subset["Cancer"] == dd_selectbox_cancer]
-
-
-### P2.5 ###
-ages = [
-    "Age <5",
-    "Age 5-14",
-    "Age 15-24",
-    "Age 25-34",
-    "Age 35-44",
-    "Age 45-54",
-    "Age 55-64",
-    "Age >64",
-]
-
-
-age_selection = alt.selection_single(fields=['Age'], bind='legend')
-
-chart = alt.Chart(subset).mark_rect().encode(
-    x=alt.X("Age:O", sort=ages),
-    y=alt.Y("Country:N"),
-    color=alt.Color("Rate:Q", title="Mortality rate per 100k", scale=alt.Scale(type='log', domain=(0.01, 1000), clamp=True)),
-    tooltip=["Rate:Q"]
+# a gray map using as the visualization background
+background = alt.Chart(source
+).mark_geoshape(
+    fill='#aaa',
+    stroke='white'
 ).properties(
-    title=f"{dd_selectbox_cancer} mortality rates for {'males' if select_gender == 'M' else 'females'} in {select_year}",
-).add_selection(
-    age_selection
+    width=width,
+    height=height
+).project(project)
+
+######################
+# P3.4 create a selector to link two map visualizations
+selector = alt.selection_single(on='click'
+    # add your code here
+    # ...
+    )
+
+
+chart_base = alt.Chart(source
+    ).properties( 
+        width=width,
+        height=height
+    ).project(project
+    ).add_selection(selector
+    ).transform_lookup(
+        lookup="id",
+# Rate = COVERAGE,  Population = Incidence Rate, 
+        from_=alt.LookupData(for_geo, "country-code", ['COVERAGE', 'COUNTRY', 'INCIDENCE_RATE', 'YEAR']),
+    )
+
+# fix the color schema so that it will not change upon user selection
+coverage_scale = alt.Scale(domain=[for_geo['COVERAGE'].min(), for_geo['COVERAGE'].max()], scheme='oranges')
+coverage_color = alt.Color(field="COVERAGE:Q", type="quantitative", scale=coverage_scale)
+
+chart_coverage = chart_base.mark_geoshape().encode(
+    color=alt.Color('COVERAGE:Q', type="quantitative", scale=coverage_scale), 
+    tooltip=['COVERAGE:Q', 'Country:N']  
+    ######################
+    # P3.1 map visualization showing the mortality rate
+    # add your code here
+    # ...
+    ######################
+    # P3.3 tooltip
+    # add your code here
+    # ...
+    ).transform_filter(
+    selector
+    ).properties(
+###Need to fix the year in title?
+    title=f'Vaccine Coverage Worldwide {year}'
 )
 
-### P2.5 ###
 
-
-st.altair_chart(chart, use_container_width=True)
-
-countries_in_subset = subset["Country"].unique()
-if len(countries_in_subset) != len(countries):
-    if len(countries_in_subset) == 0:
-        st.write("No data avaiable for given subset.")
-    else:
-        missing = set(countries) - set(countries_in_subset)
-        st.write("No data available for " + ", ".join(missing) + ".")
-
-
-subset_year = df[df["Year"] == select_year]
-subset_year_country = subset_year[subset_year["Country"].isin(select_country)]
-
-
-bar_chart = alt.Chart(subset).mark_bar().encode(
-    x=alt.X("Pop:Q", sort=ages, title='Population'),
-    y=alt.Y("Country:N", title='Country', sort=ages),
-    color=alt.Color("Age:O", sort=ages, title='Age'),
-    opacity=alt.condition(age_selection, alt.value(1), alt.value(0.2)),
-    tooltip=["Age:O", "Pop:Q"]
+# fix the color schema so that it will not change upon user selection
+incidence_scale = alt.Scale(domain=[for_geo['INCIDENCE_RATE'].min(), for_geo['INCIDENCE_RATE'].max()], scheme='yellowgreenblue')
+chart_incidence = chart_base.mark_geoshape().encode(
+    color=alt.Color('INCIDENCE_RATE:Q', type="quantitative", scale=incidence_scale),
+    tooltip=['INCIDENCE_RATE:Q', 'COUNTRY:N'] 
+    ######################
+    # P3.2 map visualization showing the mortality rate
+    # add your code here
+    # ...
+     ######################
+    # P3.3 tooltip
+    # add your code here  
+    # ...
+    ).transform_filter(
+    selector
 ).properties(
-    title=f"Population by Country and Age Group in {select_year}",
-).add_selection(
-    age_selection
+###Again the year?
+    title=f'World Disease Incidence Rate {year}'
 )
-#.transform_filter(
-#select_year
-#)
 
-st.altair_chart(bar_chart, use_container_width=True)
+chart2 = alt.vconcat(background + chart_coverage, background + chart_incidence
+).resolve_scale(
+    color='independent'
+)
+
+
+
+chart2
