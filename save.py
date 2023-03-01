@@ -1,6 +1,7 @@
 import altair as alt
 import pandas as pd
 import streamlit as st
+import numpy as np
 
 ### Import data ###
 
@@ -8,17 +9,15 @@ import streamlit as st
 
 #url = "https://raw.githubusercontent.com/emanuelemassaro/pois/master/indonesia_education.csv"
 
-url_vax = "https://github.com/smkisvarday/InsightSquad/master/coverage--2021.xlsx"
-url_dis = "https://github.com/smkisvarday/InsightSquad/master/incidence-rate--2021.xlsx"
+url_vax = "https://raw.githubusercontent.com/smkisvarday/InsightSquad/master/coverage--2021.csv"
+url_dis = "https://raw.githubusercontent.com/smkisvarday/InsightSquad/master/incidence-rate--2021.csv"
 
-#pd.read_csv(url)
-#df = pd.read_excel('sample.xlsx')
 
-#vax = pd.read_excel(url_vax)
-#dis = pd.read_excel(url_dis)
+vax = pd.read_csv(url_vax)
+dis = pd.read_csv(url_dis)
 
-vax = pd.read_csv('coverage--2021.csv')
-dis = pd.read_csv('incidence-rate--2021.csv')
+#vax = pd.read_csv('/Users/purpleacadia/Dropbox/MBI-HMS/BMI-706_DataVis/Project/InsightSquad/coverage--2021.csv')
+#dis = pd.read_csv('incidence-rate--2021.csv')
 
 
 #mount google drive ("allow access" when prompted)
