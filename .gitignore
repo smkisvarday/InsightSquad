@@ -1,2 +1,2 @@
 *.py.orig
-*_pycache_*
+*pycache*
