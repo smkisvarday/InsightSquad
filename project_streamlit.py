@@ -496,7 +496,7 @@ chart1 = alt.vconcat(bubble, dose_stacked
     color='independent'
 )
 
-###  display joint chart
+###  display joint chart please
 chart1
 
 
