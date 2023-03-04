@@ -379,3 +379,124 @@ chart2 = alt.vconcat(background + chart_coverage, background + chart_incidence
 chart2
 
 
+
+
+################# Molly's charts ##################
+# create bubble plot
+####
+
+#slider for year 
+year = st.slider('Year', min_value=float(df.YEAR.min()), max_value=float(df.YEAR.max()), step=1.0, format='%d')
+
+#subset_lastdose = df_last_admin[df_last_admin["YEAR"] == year]
+
+#disease selector
+diseases = df.DISEASE.unique()
+disease_dropdown = alt.binding_select(options=diseases, name='Select disease:')
+disease_select = alt.selection_single(fields=['DISEASE'], bind=disease_dropdown, init={'DISEASE':'DIPHTHERIA'})
+
+st.write("For Polio, incidence is for 1,000,000 population *under age 15*")
+
+#build chart
+bubble = alt.Chart(comp_region[comp_region.YEAR==year]).mark_circle().encode(
+    x=alt.X('COVERAGE:Q', title='Vaccine coverage (% of target population)'),
+    y=alt.Y('INCIDENCE_RATE:Q', title='Disease incidence per 1,000,000 population'),
+    color=alt.Color('NAME:N', title='WHO Region'),
+    size=alt.Size('TARGET_NUMBER:Q', title='Target population size')
+).add_selection(
+    disease_select
+).transform_filter(
+    disease_select
+).properties(title='Vaccine coverage vs disease incidence by region',
+             height=180,
+             width=500)
+#).configure_title(anchor='middle')
+
+#bubble
+
+
+#### Label dose numbers for stacked bar chart
+# for stacked dose bar chart
+####
+
+#add dose number column
+                #diphtheria
+df['dose_num'] = np.where(df.ANTIGEN=='DTPCV1', 1,
+                 np.where(df.ANTIGEN=='DTPCV3', 3,
+                 np.where(df.ANTIGEN=='DIPHCV4', 4,
+                 np.where(df.ANTIGEN=='DIPHCV5', 'final', 
+                
+                #polio
+                 np.where(df.ANTIGEN=='IPV1', 1,
+                 np.where(df.ANTIGEN=='IPV2', 2,
+                 np.where(df.ANTIGEN=='POL3', 'final',
+                
+                 #measles
+                 np.where(df.ANTIGEN=='MCV1', 1,
+                 np.where(df.ANTIGEN=='MCV2', 'final', 
+
+                #pertussis
+                 #np.where((df.ANTIGEN=='DTPCV1') & (df.DISEASE_2=='PERTUSSIS'), 1,
+                 #np.where((df.ANTIGEN=='DTPCV3') & (df.DISEASE_2=='PERTUSSIS'), 'final',
+                 np.where(df.ANTIGEN=='PERCV4', 'final',
+                 np.where(df.ANTIGEN=='PERCV_PW', 'booster',
+
+                #rubella
+                np.where(df.ANTIGEN=='RCV1', 'final',
+
+                 #tetanus
+                 np.where(df.ANTIGEN=='TT2PLUS', 'final',
+                 np.where(df.ANTIGEN=='TTCV4','booster',
+                 np.where(df.ANTIGEN=='TTCV5','booster',
+                 np.where(df.ANTIGEN=='TTCV6','booster', 
+
+                #yellow fever
+                np.where(df.ANTIGEN=='YFV', 'final',
+
+                #japanese encephalitis
+                np.where(df.ANTIGEN=='JAPENC', 'final',
+                 np.where(df.ANTIGEN=='JAPENC_1', 'final', np.NaN)))))))))))))))))))
+
+
+### Bar chart for doses
+#region selector
+regions = df[df.GROUP=='WHO_REGIONS'].NAME.unique()
+region_dropdown = alt.binding_select(options=regions, name='Select region:')
+region_select = alt.selection_single(fields=['NAME'], bind=region_dropdown, init={'NAME':'African Region'})
+
+#country selector
+countries = df[df.GROUP=='COUNTRIES'].NAME.unique()
+country_dropdown = alt.binding_select(options=countries, name='Select country:')
+country_select = alt.selection_single(fields=['NAME'], bind=country_dropdown, init={'NAME':'Aruba'})
+
+
+dose_stacked = alt.Chart(df[(df.dose_num.notna()) & (df.dose_num!='nan')]).mark_bar(size=8).encode(
+    x=alt.X('YEAR', axis=alt.Axis(format=".0f")),
+    y=alt.Y('COVERAGE:Q', title='Coverage (%)'),
+    color=alt.Color('dose_num:N', title='Dose #', sort='descending'),
+    order=alt.Order('dose_num:N', sort='descending')
+).properties(title='Vaccine coverage by dose number over time',
+             width=500,
+             height=75
+#).configure_title(anchor='middle'
+).add_selection(
+    disease_select
+).transform_filter(
+    disease_select
+).add_selection(
+    country_select
+).transform_filter(
+    country_select)
+
+#dose_stacked
+
+#### concat the bubble and bar charts so they use same disease selector
+chart1 = alt.vconcat(bubble, dose_stacked
+).resolve_scale(
+    color='independent'
+)
+
+###  display joint chart
+chart1
+
+
