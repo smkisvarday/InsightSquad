@@ -82,6 +82,8 @@ vax.loc[vax.ANTIGEN_DESCRIPTION.str.contains(rubella_words), 'DISEASE'] = 'RUBEL
 vax.loc[vax.ANTIGEN_DESCRIPTION.str.contains(yellowfever_words), 'DISEASE'] = 'YFEVER'
 vax.loc[vax.ANTIGEN_DESCRIPTION.str.contains(jenceph_words), 'DISEASE'] = 'JAPENC'
 
+
+
 common_diseases = vax.loc[vax.DISEASE.notna(), 'DISEASE'].unique()
 
 vax_lim = vax[vax.DISEASE.isin(common_diseases)]
@@ -116,7 +118,7 @@ country_df = pd.read_csv('https://raw.githubusercontent.com/hms-dbmi/bmi706-2022
 source = alt.topo_feature(data.world_110m.url, 'countries')
 
 #I will need to update the year for this visualization once I figure out how to do a slider for this chart
-year = 2018.0 # only visualize for 2018
+year = 2018 # only visualize for 2018
 for_geo = for_geo[for_geo['YEAR']==year]
 
 st.header("Global Vaccine-Preventable Disease Dashboard")
@@ -137,11 +139,18 @@ background = alt.Chart(source
 
 ######################
 # P3.4 create a selector to link two map visualizations
-selector = alt.selection_single(on='click'
-    # add your code here
-    # ...
-    )
+selector = alt.selection_single(
+    empty='all', fields = ['Country']
+)
 
+
+# select disease through dropdown
+# make list of all disease used above
+all_disease = for_geo['DISEASE'].unique()
+
+disease_select = st.selectbox('Select disease', all_disease)
+# filter the data based on the disease selected
+for_geo = for_geo[for_geo['DISEASE']==disease_select]
 
 chart_base = alt.Chart(source
     ).properties( 
@@ -152,7 +161,7 @@ chart_base = alt.Chart(source
     ).transform_lookup(
         lookup="id",
 # Rate = COVERAGE,  Population = Incidence Rate, 
-        from_=alt.LookupData(for_geo, "country-code", ['COVERAGE', 'COUNTRY', 'INCIDENCE_RATE', 'YEAR']),
+        from_=alt.LookupData(for_geo, "country-code", ['COVERAGE', 'Country', 'INCIDENCE_RATE', 'YEAR']),
     )
 
 # fix the color schema so that it will not change upon user selection
@@ -179,18 +188,11 @@ chart_coverage = chart_base.mark_geoshape().encode(
 
 
 # fix the color schema so that it will not change upon user selection
+# incidence_scale = alt.Scale(domain=[for_geo['INCIDENCE_RATE'].min(), for_geo['INCIDENCE_RATE'].max()], scheme='yellowgreenblue')
 incidence_scale = alt.Scale(domain=[for_geo['INCIDENCE_RATE'].min(), for_geo['INCIDENCE_RATE'].max()], scheme='yellowgreenblue')
 chart_incidence = chart_base.mark_geoshape().encode(
     color=alt.Color('INCIDENCE_RATE:Q', type="quantitative", scale=incidence_scale),
-    tooltip=['INCIDENCE_RATE:Q', 'COUNTRY:N'] 
-    ######################
-    # P3.2 map visualization showing the mortality rate
-    # add your code here
-    # ...
-     ######################
-    # P3.3 tooltip
-    # add your code here  
-    # ...
+    tooltip=['INCIDENCE_RATE:Q', 'Country:N'] 
     ).transform_filter(
     selector
 ).properties(
@@ -203,6 +205,111 @@ chart2 = alt.vconcat(background + chart_coverage, background + chart_incidence
     color='independent'
 )
 
+print("max incidence rate")
+print(for_geo['INCIDENCE_RATE'].max())
 
+print(all_disease)
 
 chart2
+
+
+
+# figure 5
+# Illustrate change in vaccination coverage and disease incidence over time.
+
+df_5 = df_ld.copy()
+# for each year and disease, get the mean coverage and incidence rate
+df_5 = df_5.groupby(['YEAR', 'DISEASE']).mean().reset_index()
+
+
+# make an altair chart with the Year on the x-axis and the COVERAGE on the y-axis with different colors for each disease
+
+disease_selection_3 = alt.selection_single(
+    fields=['DISEASE'], bind = "legend"
+)
+
+chart5_1 = alt.Chart(df_5).mark_line().encode(
+    x= alt.X('YEAR', title='Year', scale=alt.Scale(domain=(1980, 2021))),
+    y='COVERAGE',
+    color='DISEASE'
+).add_selection(
+    disease_selection_3
+).transform_filter(
+    disease_selection_3
+).properties(
+    title='Vaccine Coverage Over Time',
+    width=700,
+    height=350
+)
+# make another chart that shows the INCIDENCE_RATE over time
+chart5_2 = alt.Chart(df_5).mark_line().encode(
+    x= alt.X('YEAR', title='Year', scale=alt.Scale(domain=(1980, 2021))),
+    y='INCIDENCE_RATE',
+    color='DISEASE'
+).transform_filter(
+    disease_selection_3
+).properties(
+    title='Disease Incidence Rate Over Time',
+    width=700,
+    height=350
+)
+
+
+# combine the two charts into one chart showing one chart above the other
+chart5 = alt.vconcat(chart5_1, chart5_2)
+chart5
+
+
+#print max YEAR in df_5
+print("max year")
+print(df_5['YEAR'].max())
+
+
+#figure 3
+# make a bar chart showing the vaccine coverage for each disease in 2018 on the left and the incidence rate on the right
+df_3 = df_ld.copy()
+df_3 = df_3[df_3['YEAR']==2018]
+df_3 = df_3[df_3['DISEASE']==disease_select]
+
+#make a selection for the disease
+
+# Filter the data to include only the counties for which we have both COVERAGE and INCIDENCE_RATE data
+df_3 = df_3[df_3['COVERAGE'].notna()]
+df_3 = df_3[df_3['INCIDENCE_RATE'].notna()]
+
+
+# add brush to the chart to select a range of Countries
+country_brush = alt.selection_interval(encodings = ['y'], resolve='global')
+
+
+# make a bar chart showing the vaccine coverage for each disease in 2018
+chart3_left = alt.Chart(df_3).mark_bar(opacity=0.8).encode(
+    x=alt.X('COVERAGE', scale= alt.Scale(reverse=True)),
+    y=alt.Y('Country', axis = None, sort=alt.EncodingSortField(field="COVERAGE", op="sum", order="descending"))
+).transform_filter(
+    country_brush
+).properties(
+    width=300,
+    height=750
+)
+
+
+chart3_right = alt.Chart(df_3).mark_bar(opacity=0.8, color='red').encode(
+    x=alt.X('INCIDENCE_RATE', scale= alt.Scale(reverse=False)) ,
+    y=alt.Y('Country', sort=alt.EncodingSortField(field="COVERAGE", op="sum", order="descending")),
+).add_selection(
+    country_brush
+).transform_filter(
+    country_brush
+).properties(
+    width=300,
+    height=750
+)
+
+chart3 = alt.hconcat(chart3_left, chart3_right).properties(
+    title='Vaccine Coverage and Disease Incidence Rate in 2018'
+).resolve_scale(
+    y = 'shared'
+)
+
+chart3
